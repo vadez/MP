@@ -14,9 +14,6 @@
 
 void resize_rgb2gray(int w_out, int h_out, unsigned char* img_in, unsigned char* image_out)
 {	//printf("Init resizeing\n");
-	//printf("W_out: %d", w_out);
-	//printf("h_out: %d", h_out);
-	//printf("Image: %d", &image_out);
 	int img_y;
 	int img_x;
 	for (img_y = 0; img_y < h_out; img_y++)
@@ -26,20 +23,15 @@ void resize_rgb2gray(int w_out, int h_out, unsigned char* img_in, unsigned char*
 			unsigned char Red = img_in[w_out * 64 * img_y + 16 * img_x];
 			unsigned char Green = img_in[w_out * 64 * img_y + 1 + 16 * img_x];
 			unsigned char Blue = img_in[w_out * 64 * img_y + 2 + 16 * img_x];
-			//image_out[w_out*img_y + img_x] = img_in[w_out*4*img_y*16 + 16*img_x-3];
 			image_out[w_out*img_y + img_x] = (unsigned char)(Red * 0.2126 + Green * 0.7152 + Blue * 0.0722);
 		}
-		//printf("%d\n", img_y);
 	}
-	//printf("Does return fail\n");
 }
-
 
 void zncc(unsigned char* dmap, unsigned char* image1, unsigned char* image2, int height, int width, int MAXDISP, int MINDISP, int WIN_SIZE)
 {
 
 	//int Standard_deviation;
-	//float top_part;
 	double sum_of_window_values1;
 	double sum_of_window_values2;
 	double standart_deviation1;
@@ -47,7 +39,6 @@ void zncc(unsigned char* dmap, unsigned char* image1, unsigned char* image2, int
 	double multistand=0;
 	double best_disparity_value;
 	double current_max_sum;
-	//double window_sum;
 	double average1, average2;
 	int J;
 	int I;
@@ -108,79 +99,76 @@ void zncc(unsigned char* dmap, unsigned char* image1, unsigned char* image2, int
 
 			}
 			dmap[width*J +I] = (unsigned char)abs(best_disparity_value);
-			//printf("The fock mei\n");
 		}
 	}
 }
 
-void cross_check(unsigned char* map_com, unsigned char* map1, unsigned char* map2, int w, int h, int threshold)
+void cross_check(unsigned char* map_com, unsigned char* dispmap_L, unsigned char* dispmap_R, int w, int h, int threshold)
 {
 	printf("Cross check staring..\n");
-	int idx;
-	for (idx = 0; idx < w*h; idx++)
+	for (int i = 0; i < w*h; i++)
 	{
-		if (abs(map1[idx] - map2[idx]) > threshold)
+		if (abs(dispmap_L[i] - dispmap_R[i]) > threshold)
 		{
-			map_com[idx] = 0;
+			map_com[i] = 0;
 		}
 		else
 		{
-			map_com[idx] = map1[idx];
+			map_com[i] = dispmap_L[i];
 		}
 	}
 
 
 }
 
-void occulsion_fill(unsigned char* dmap, int height, int width, int size)
+void occulsion_fill(unsigned char* dispmap_OF, unsigned char* dispmap_CC, int width, int height)
 {
-	printf("Occulsion fill started\n");
-	int x = 0;
-	int y = 0;
-	
-	for (y = 0; y < width; y++) {
-		for (x = 0; x < height; x++)
+	int win_width = 2;
+	int win_height = 2;
+	int sum_win;
+	int pixel_count;
+	int mean_win;
+
+	for (int y_img = 0; y_img < height; y_img++)
+	{
+		for (int x_img = 0; x_img < width; x_img++)
 		{
-			if (dmap[y*width + x] == 0) 
+			if (dispmap_CC[y_img * width + x_img] == 0)
 			{
-				dmap[y*width + x] = search_non_zero(dmap,x,y,width, height,size);
+				sum_win = 0;
+				pixel_count = 0;
+
+				for (int y_win = -win_height; y_win <= win_height; y_win++)
+				{
+					for (int x_win = -win_width; x_win <= win_width; x_win++)
+					{
+						if (!(y_img + y_win >= 0) ||
+							!(y_img + y_win < height) ||
+							!(x_img + x_win >= 0) ||
+							!(x_img + x_win < width))
+						{
+							continue;
+						}
+						if (dispmap_CC[y_img * width + y_win + x_img + x_win] != 0)
+						{
+							sum_win += dispmap_CC[y_img * width + y_win + x_img + x_win];
+							pixel_count++;
+						}
+					}
+				}
+				if (pixel_count > 0)
+				{
+					mean_win = sum_win / pixel_count;
+					dispmap_OF[y_img * width + x_img] = mean_win;
+				}
+			}
+			else
+			{
+				dispmap_OF[y_img * width + x_img] = dispmap_CC[y_img * width + x_img];
 			}
 		}
 	}
-
 }
-int search_non_zero(unsigned char* dmap, int x,int y, int width, int height, int size)
-{
-	for (y; y < y+ size; y++) {
-		for (x; x < x+ size; x++)
-		{
-			if (!(y + width <= width) || !(x + height <= height))
-			{
-				continue;
-			}
-			if (dmap[y*width + x] != 0)
-			{
-				return dmap[y*width + x];
-			}
-		}
-	}
-	for (y; y <y- size; y--) {
-		for (x; x < x- size; x--)
-		{
-			if (!(y+width >=0) || !(x + height >=0))
-			{
-				continue;
-			}
-
-			if (dmap[y*width + x] != 0)
-			{
-				return dmap[y*width + x];
-			}
-		}
-	}
-	return 0;
-}
-
 
 void normalize_map(unsigned char* dispmap, int w, int h)
 {
@@ -200,10 +188,7 @@ int main()
 {
 
 	int error;
-	//const char* imgs_in[2] = { "Images/img_left.png", "Images/img_right.png" };
-	//const char* imgs_out[3] = { "Images/grey_left.png", "Images/grey_right.png", "Images/deathmap.png" };
 	//printf("Hello Wooordl\n");
-	//getchar();
 	unsigned char* image_L;
 	unsigned char* image_R;
 	unsigned char* image_out_L;
@@ -211,14 +196,13 @@ int main()
 	unsigned char* dmap_L;
 	unsigned char* dmap_R;
 	unsigned char* dmap_combined;
-	unsigned char* resultmap;
+	unsigned char* dispmap_Of;
 
 	unsigned w_o;
 	unsigned h_o;
 	unsigned w;
 	unsigned h;
 
-	//printf("hmm\n");
 	error = lodepng_decode32_file(&image_L, &w, &h, L_INPUT_IMAGE_NAME);
 	if (error)printf("Error detected! While decoding image\n");
 
@@ -237,20 +221,21 @@ int main()
 
 	dmap_L = (unsigned char*)malloc(w_o * h_o);
 	zncc(dmap_L, image_out_L, image_out_R, h_o, w_o, MAX_DISP, 0, BLOCK_SIZE);
+
 	dmap_R = (unsigned char*)malloc(w_o * h_o);
 	zncc(dmap_R, image_out_R, image_out_L, h_o, w_o, 0, -MAX_DISP, BLOCK_SIZE);
-	//zncc(dmap_R, image_out_R, image_out_L, w_o, h_o, 0, -65);
 
 	dmap_combined = (unsigned char*)malloc(w_o * h_o);
 	cross_check(dmap_combined, dmap_L, dmap_R, w_o, h_o, THRESHOLD);
 
-	occulsion_fill(dmap_combined, w_o, h_o, 256);
+	dispmap_Of = (unsigned char*)malloc(w_o * h_o);
+	occulsion_fill(dispmap_Of,dmap_combined, w_o, h_o, 16);
 
-	normalize_map(dmap_combined, w_o, h_o);
+	normalize_map(dispmap_Of, w_o, h_o);
 
 	//error = lodepng_encode_file(imgs_out[0], image_out_L, w_o, h_o, LCT_GREY, 8);
 	//error = lodepng_encode_file(imgs_out[1], image_out_R, w_o, h_o, LCT_GREY, 8);
-	error = lodepng_encode_file(OUTPUT_IMAGE_NAME, dmap_combined, w_o, h_o, LCT_GREY, 8);
+	error = lodepng_encode_file(OUTPUT_IMAGE_NAME, dispmap_Of, w_o, h_o, LCT_GREY, 8);
 	if (error)printf("Error %u: %s\n", error, lodepng_error_text(error));
 	return 0;
 }
