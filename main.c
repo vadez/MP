@@ -182,22 +182,17 @@ int search_non_zero(unsigned char* dmap, int x,int y, int width, int height, int
 }
 
 
-void normalize_map(unsigned char* nmap, int w, int h)
+void normalize_map(unsigned char* dispmap, int w, int h)
 {
 	printf("Starting normalizing map\n");
-	int max = 255;
-	int min = 0;
-	int imsize = w*h;
+	int a = 0;
+	int b = 255;
 	int  i;
-	for (i = 0; i < imsize; i++) {
-		if (nmap[i] > min)
-			min = nmap[i];
-		if (nmap[i] < max)
-			max = nmap[i];
-	}
-
-	for (i = 0; i < imsize; i++) {
-		nmap[i] = (unsigned char)(255 * (nmap[i] - max) / (min - max));
+	int X_max=MAX_DISP;
+	int X_min=0;
+	//feature scaling
+	for (i = 0; i < w*h; i++) {
+		dispmap[i] = (unsigned char)(a + ((dispmap[i] - X_min)*(b - a)) / (X_max - X_min));
 	}
 }
 
